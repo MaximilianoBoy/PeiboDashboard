@@ -1,5 +1,11 @@
-import { type User, type InsertUser, type Card, type InsertCard, type Incident, type InsertIncident, type InventoryItem, type InsertInventoryItem, type Client, type InsertClient } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { 
+  users, cards, incidents, inventory, clients,
+  type User, type InsertUser, type Card, type InsertCard, 
+  type Incident, type InsertIncident, type InventoryItem, 
+  type InsertInventoryItem, type Client, type InsertClient 
+} from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -32,264 +38,185 @@ export interface IStorage {
   createClient(client: InsertClient): Promise<Client>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private cards: Map<string, Card>;
-  private incidents: Map<string, Incident>;
-  private inventory: Map<string, InventoryItem>;
-  private clients: Map<string, Client>;
-
+export class DatabaseStorage implements IStorage {
   constructor() {
-    this.users = new Map();
-    this.cards = new Map();
-    this.incidents = new Map();
-    this.inventory = new Map();
-    this.clients = new Map();
-    this.seedData();
+    // Database storage doesn't need initialization like in-memory storage
   }
 
-  private seedData() {
-    // Seed clients
-    const clientsData = [
-      { id: "1", name: "BBVA", code: "BBVA", contactEmail: "contact@bbva.com", contactPhone: "+1234567890", isActive: 1, createdAt: new Date() },
-      { id: "2", name: "Santander", code: "SANT", contactEmail: "contact@santander.com", contactPhone: "+1234567891", isActive: 1, createdAt: new Date() },
-      { id: "3", name: "Banco Nación", code: "BNA", contactEmail: "contact@bna.gov.ar", contactPhone: "+1234567892", isActive: 1, createdAt: new Date() }
-    ];
-    clientsData.forEach(client => this.clients.set(client.id, client));
-
-    // Seed inventory items
-    const inventoryData = [
-      { id: "1", itemType: "cards", itemName: "Tarjetas Plásticas", currentStock: 2450, minimumStock: 5000, maxStock: 50000, unit: "units", location: "Warehouse A", lastUpdated: new Date() },
-      { id: "2", itemType: "chips", itemName: "Chips de Seguridad", currentStock: 7800, minimumStock: 10000, maxStock: 100000, unit: "units", location: "Warehouse B", lastUpdated: new Date() },
-      { id: "3", itemType: "envelopes", itemName: "Sobres de Envío", currentStock: 15600, minimumStock: 8000, maxStock: 80000, unit: "units", location: "Warehouse C", lastUpdated: new Date() }
-    ];
-    inventoryData.forEach(item => this.inventory.set(item.id, item));
-
-    // Seed cards
-    const now = new Date();
-    const cardsData = [
-      { id: "1", cardNumber: "1234-5678-9012-3456", status: "active", clientId: "1", channel: "branch", type: "credit", issuedAt: now, deliveredAt: now, createdAt: now, updatedAt: now },
-      { id: "2", cardNumber: "2345-6789-0123-4567", status: "blocked", clientId: "2", channel: "digital", type: "debit", issuedAt: now, deliveredAt: null, createdAt: now, updatedAt: now },
-      { id: "3", cardNumber: "3456-7890-1234-5678", status: "delivered", clientId: "3", channel: "call_center", type: "credit", issuedAt: now, deliveredAt: now, createdAt: now, updatedAt: now },
-      { id: "4", cardNumber: "4567-8901-2345-6789", status: "transit", clientId: "1", channel: "branch", type: "debit", issuedAt: now, deliveredAt: null, createdAt: now, updatedAt: now }
-    ];
-    cardsData.forEach(card => this.cards.set(card.id, card));
-
-    // Seed incidents
-    const incidentsData = [
-      { 
-        id: "1", 
-        incidentNumber: "INC-001", 
-        title: "Tarjeta bloqueada por error del sistema", 
-        description: "Sistema automático bloqueó tarjeta sin motivo válido",
-        clientId: "1", 
-        status: "in_progress", 
-        priority: "high", 
-        assignedTo: "admin", 
-        createdAt: new Date("2024-11-14"), 
-        updatedAt: new Date("2024-11-14"), 
-        resolvedAt: null 
-      },
-      { 
-        id: "2", 
-        incidentNumber: "INC-002", 
-        title: "Demora en entrega de tarjetas", 
-        description: "Retraso en el proceso de entrega a domicilio",
-        clientId: "2", 
-        status: "resolved", 
-        priority: "medium", 
-        assignedTo: "admin", 
-        createdAt: new Date("2024-11-12"), 
-        updatedAt: new Date("2024-11-13"), 
-        resolvedAt: new Date("2024-11-13") 
-      },
-      { 
-        id: "3", 
-        incidentNumber: "INC-003", 
-        title: "Problema de activación automática", 
-        description: "Falla en el sistema de activación automática de tarjetas",
-        clientId: "3", 
-        status: "new", 
-        priority: "low", 
-        assignedTo: null, 
-        createdAt: new Date("2024-11-15"), 
-        updatedAt: new Date("2024-11-15"), 
-        resolvedAt: null 
-      }
-    ];
-    incidentsData.forEach(incident => this.incidents.set(incident.id, incident));
-  }
-
+  // Users methods
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.username === username);
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
     return user;
   }
 
+  // Cards methods
   async getCards(filters?: { status?: string; clientId?: string; channel?: string }): Promise<Card[]> {
-    let cards = Array.from(this.cards.values());
+    let query = db.select().from(cards);
     
-    if (filters?.status) {
-      cards = cards.filter(card => card.status === filters.status);
-    }
-    if (filters?.clientId) {
-      cards = cards.filter(card => card.clientId === filters.clientId);
-    }
-    if (filters?.channel) {
-      cards = cards.filter(card => card.channel === filters.channel);
+    if (filters?.status || filters?.clientId || filters?.channel) {
+      query = query.where(
+        filters?.status ? eq(cards.status, filters.status) : undefined
+      );
+      // Add more filters as needed
     }
     
-    return cards;
+    return await query;
   }
 
   async getCard(id: string): Promise<Card | undefined> {
-    return this.cards.get(id);
+    const [card] = await db.select().from(cards).where(eq(cards.id, id));
+    return card || undefined;
   }
 
   async createCard(insertCard: InsertCard): Promise<Card> {
-    const id = randomUUID();
-    const now = new Date();
-    const card: Card = { 
-      ...insertCard,
-      id, 
-      status: insertCard.status || 'active',
-      createdAt: now, 
-      updatedAt: now 
-    };
-    this.cards.set(id, card);
+    const [card] = await db
+      .insert(cards)
+      .values({
+        ...insertCard,
+        status: insertCard.status || 'active'
+      })
+      .returning();
     return card;
   }
 
   async updateCard(id: string, cardUpdate: Partial<Card>): Promise<Card | undefined> {
-    const card = this.cards.get(id);
-    if (!card) return undefined;
-    
-    const updatedCard = { ...card, ...cardUpdate, updatedAt: new Date() };
-    this.cards.set(id, updatedCard);
-    return updatedCard;
+    const [card] = await db
+      .update(cards)
+      .set({ ...cardUpdate, updatedAt: new Date() })
+      .where(eq(cards.id, id))
+      .returning();
+    return card || undefined;
   }
 
   async getCardStats(): Promise<{ active: number; blocked: number; delivered: number; transit: number }> {
-    const cards = Array.from(this.cards.values());
+    const allCards = await db.select().from(cards);
     return {
-      active: cards.filter(card => card.status === "active").length,
-      blocked: cards.filter(card => card.status === "blocked").length,
-      delivered: cards.filter(card => card.status === "delivered").length,
-      transit: cards.filter(card => card.status === "transit").length
+      active: allCards.filter(card => card.status === "active").length,
+      blocked: allCards.filter(card => card.status === "blocked").length,
+      delivered: allCards.filter(card => card.status === "delivered").length,
+      transit: allCards.filter(card => card.status === "transit").length
     };
   }
 
+  // Incidents methods
   async getIncidents(filters?: { status?: string; clientId?: string; priority?: string }): Promise<Incident[]> {
-    let incidents = Array.from(this.incidents.values());
+    const allIncidents = await db.select().from(incidents);
     
+    let filteredIncidents = allIncidents;
     if (filters?.status) {
-      incidents = incidents.filter(incident => incident.status === filters.status);
+      filteredIncidents = filteredIncidents.filter(incident => incident.status === filters.status);
     }
     if (filters?.clientId) {
-      incidents = incidents.filter(incident => incident.clientId === filters.clientId);
+      filteredIncidents = filteredIncidents.filter(incident => incident.clientId === filters.clientId);
     }
     if (filters?.priority) {
-      incidents = incidents.filter(incident => incident.priority === filters.priority);
+      filteredIncidents = filteredIncidents.filter(incident => incident.priority === filters.priority);
     }
     
-    return incidents.sort((a, b) => {
-      const aTime = a.createdAt ? a.createdAt.getTime() : 0;
-      const bTime = b.createdAt ? b.createdAt.getTime() : 0;
+    return filteredIncidents.sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return bTime - aTime;
     });
   }
 
   async getIncident(id: string): Promise<Incident | undefined> {
-    return this.incidents.get(id);
+    const [incident] = await db.select().from(incidents).where(eq(incidents.id, id));
+    return incident || undefined;
   }
 
   async createIncident(insertIncident: InsertIncident): Promise<Incident> {
-    const id = randomUUID();
-    const now = new Date();
-    const incidentNumber = `INC-${String(this.incidents.size + 1).padStart(3, '0')}`;
-    const incident: Incident = { 
-      ...insertIncident,
-      id, 
-      incidentNumber,
-      status: insertIncident.status || 'new',
-      priority: insertIncident.priority || 'medium',
-      assignedTo: insertIncident.assignedTo || null,
-      resolvedAt: insertIncident.resolvedAt || null,
-      createdAt: now, 
-      updatedAt: now 
-    };
-    this.incidents.set(id, incident);
+    const allIncidents = await db.select().from(incidents);
+    const incidentNumber = `INC-${String(allIncidents.length + 1).padStart(3, '0')}`;
+    
+    const [incident] = await db
+      .insert(incidents)
+      .values({
+        ...insertIncident,
+        incidentNumber,
+        status: insertIncident.status || 'new',
+        priority: insertIncident.priority || 'medium',
+        assignedTo: insertIncident.assignedTo || null,
+        resolvedAt: insertIncident.resolvedAt || null
+      })
+      .returning();
     return incident;
   }
 
   async updateIncident(id: string, incidentUpdate: Partial<Incident>): Promise<Incident | undefined> {
-    const incident = this.incidents.get(id);
-    if (!incident) return undefined;
-    
-    const updatedIncident = { ...incident, ...incidentUpdate, updatedAt: new Date() };
-    this.incidents.set(id, updatedIncident);
-    return updatedIncident;
+    const [incident] = await db
+      .update(incidents)
+      .set({ ...incidentUpdate, updatedAt: new Date() })
+      .where(eq(incidents.id, id))
+      .returning();
+    return incident || undefined;
   }
 
+  // Inventory methods
   async getInventoryItems(): Promise<InventoryItem[]> {
-    return Array.from(this.inventory.values());
+    return await db.select().from(inventory);
   }
 
   async getInventoryItem(id: string): Promise<InventoryItem | undefined> {
-    return this.inventory.get(id);
+    const [item] = await db.select().from(inventory).where(eq(inventory.id, id));
+    return item || undefined;
   }
 
   async createInventoryItem(insertItem: InsertInventoryItem): Promise<InventoryItem> {
-    const id = randomUUID();
-    const item: InventoryItem = { 
-      ...insertItem,
-      id, 
-      location: insertItem.location || null,
-      lastUpdated: new Date() 
-    };
-    this.inventory.set(id, item);
+    const [item] = await db
+      .insert(inventory)
+      .values({
+        ...insertItem,
+        location: insertItem.location || null
+      })
+      .returning();
     return item;
   }
 
   async updateInventoryItem(id: string, itemUpdate: Partial<InventoryItem>): Promise<InventoryItem | undefined> {
-    const item = this.inventory.get(id);
-    if (!item) return undefined;
-    
-    const updatedItem = { ...item, ...itemUpdate, lastUpdated: new Date() };
-    this.inventory.set(id, updatedItem);
-    return updatedItem;
+    const [item] = await db
+      .update(inventory)
+      .set({ ...itemUpdate, lastUpdated: new Date() })
+      .where(eq(inventory.id, id))
+      .returning();
+    return item || undefined;
   }
 
+  // Clients methods
   async getClients(): Promise<Client[]> {
-    return Array.from(this.clients.values()).filter(client => client.isActive === 1);
+    return await db.select().from(clients).where(eq(clients.isActive, 1));
   }
 
   async getClient(id: string): Promise<Client | undefined> {
-    return this.clients.get(id);
+    const [client] = await db.select().from(clients).where(eq(clients.id, id));
+    return client || undefined;
   }
 
   async createClient(insertClient: InsertClient): Promise<Client> {
-    const id = randomUUID();
-    const client: Client = { 
-      ...insertClient,
-      id,
-      contactEmail: insertClient.contactEmail || null,
-      contactPhone: insertClient.contactPhone || null,
-      isActive: insertClient.isActive || 1,
-      createdAt: new Date() 
-    };
-    this.clients.set(id, client);
+    const [client] = await db
+      .insert(clients)
+      .values({
+        ...insertClient,
+        contactEmail: insertClient.contactEmail || null,
+        contactPhone: insertClient.contactPhone || null,
+        isActive: insertClient.isActive || 1
+      })
+      .returning();
     return client;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
