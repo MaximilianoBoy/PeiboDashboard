@@ -5,8 +5,12 @@ import {
   CreditCard, 
   AlertTriangle, 
   Package, 
-  FileBarChart 
+  FileBarChart,
+  LogOut,
+  User
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -18,9 +22,14 @@ const navigation = [
 
 export function Sidebar() {
   const [location] = useLocation();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+  };
 
   return (
-    <aside className="w-64 bg-white shadow-lg border-r border-gray-200 fixed h-full z-10">
+    <aside className="w-64 bg-white shadow-lg border-r border-gray-200 fixed h-full z-10 flex flex-col">
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-peibo-blue rounded-lg flex items-center justify-center">
@@ -33,7 +42,7 @@ export function Sidebar() {
         </div>
       </div>
       
-      <nav className="p-4 space-y-2">
+      <nav className="p-4 space-y-2 flex-1">
         {navigation.map((item) => {
           const isActive = location === item.href;
           const Icon = item.icon;
@@ -61,6 +70,28 @@ export function Sidebar() {
           );
         })}
       </nav>
+      
+      {/* User section at bottom */}
+      <div className="p-4 border-t border-gray-200">
+        <div className="flex items-center space-x-3 mb-3">
+          <div className="w-8 h-8 bg-peibo-blue rounded-full flex items-center justify-center">
+            <User className="w-4 h-4 text-white" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-peibo-text">{user?.name}</p>
+            <p className="text-xs text-peibo-muted">{user?.role}</p>
+          </div>
+        </div>
+        <Button 
+          onClick={handleLogout}
+          variant="outline" 
+          size="sm" 
+          className="w-full text-peibo-muted hover:text-peibo-text"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Cerrar Sesión
+        </Button>
+      </div>
     </aside>
   );
 }

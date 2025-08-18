@@ -9,8 +9,24 @@ import Cards from "./pages/cards";
 import Incidents from "./pages/incidents";
 import Inventory from "./pages/inventory";
 import Reports from "./pages/reports";
+import Login from "./pages/login";
+import { useAuth } from "@/hooks/useAuth";
 
 function Router() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Cargando...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
   return (
     <Switch>
       <Route path="/" component={Dashboard} />

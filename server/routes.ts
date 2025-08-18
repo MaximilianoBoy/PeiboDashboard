@@ -1,8 +1,9 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertCardSchema, insertIncidentSchema, insertInventorySchema, insertClientSchema } from "@shared/schema";
 import { z } from "zod";
+import { authenticateUser, validateToken, logoutUser } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Cards routes
@@ -222,6 +223,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.send(csv);
     } catch (error) {
       res.status(500).json({ error: "Failed to export incidents" });
+    }
+  });
+
+  // Middleware para verificar autenticación
+  const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: "Token requerido" });
+    }
+
+    const user = await validateToken(token);
+    if (!user) {
+      return res.status(401).json({ error: "Token inválido o expirado" });
+    }
+
+    (req as any).user = user;
+    next();
+  };
+
+  // Rutas de autenticación
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: "Usuario y contraseña requeridos" });
+      }
+
+      const token = await authenticateUser(username, password);
+      
+      if (!token) {
+        return res.status(401).json({ error: "Credenciales inválidas" });
+      }
+
+      res.json({ token });
+    } catch (error) {
+      res.status(500).json({ error: "Error en el servidor" });
+    }
+  });
+
+  app.post("/api/auth/logout", requireAuth, async (req, res) => {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      if (token) {
+        await logoutUser(token);
+      }
+      res.json({ message: "Sesión cerrada exitosamente" });
+    } catch (error) {
+      res.status(500).json({ error: "Error cerrando sesión" });
+    }
+  });
+
+  app.get("/api/auth/me", requireAuth, async (req, res) => {
+    try {
+      res.json((req as any).user);
+    } catch (error) {
+      res.status(500).json({ error: "Error obteniendo información del usuario" });
     }
   });
 

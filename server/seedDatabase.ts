@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { clients, inventory, cards, incidents } from "@shared/schema";
+import { clients, inventory, cards, incidents, users } from "@shared/schema";
 
 export async function seedDatabase() {
   try {
@@ -11,6 +11,21 @@ export async function seedDatabase() {
     }
 
     console.log("Seeding database with initial data...");
+
+    // Seed users
+    const usersData = [
+      {
+        id: "1",
+        username: "Maximiliano",
+        password: "123456", // En producción esto debería estar hasheado
+        name: "Maximiliano",
+        role: "admin",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+
+    await db.insert(users).values(usersData);
 
     // Seed clients
     const clientsData = [
@@ -78,6 +93,39 @@ export async function seedDatabase() {
         maxStock: 80000, 
         unit: "units", 
         location: "Warehouse C", 
+        lastUpdated: new Date() 
+      },
+      { 
+        id: "4", 
+        itemType: "stationery", 
+        itemName: "Papel A4", 
+        currentStock: 500, 
+        minimumStock: 200, 
+        maxStock: 2000, 
+        unit: "reams", 
+        location: "Office Storage", 
+        lastUpdated: new Date() 
+      },
+      { 
+        id: "5", 
+        itemType: "stationery", 
+        itemName: "Bolígrafos", 
+        currentStock: 150, 
+        minimumStock: 100, 
+        maxStock: 500, 
+        unit: "pieces", 
+        location: "Office Storage", 
+        lastUpdated: new Date() 
+      },
+      { 
+        id: "6", 
+        itemType: "stationery", 
+        itemName: "Carpetas", 
+        currentStock: 75, 
+        minimumStock: 50, 
+        maxStock: 200, 
+        unit: "pieces", 
+        location: "Office Storage", 
         lastUpdated: new Date() 
       }
     ];

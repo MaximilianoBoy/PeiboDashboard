@@ -1,8 +1,9 @@
 import { 
-  users, cards, incidents, inventory, clients,
+  users, cards, incidents, inventory, clients, sessions,
   type User, type InsertUser, type Card, type InsertCard, 
   type Incident, type InsertIncident, type InventoryItem, 
-  type InsertInventoryItem, type Client, type InsertClient 
+  type InsertInventoryItem, type Client, type InsertClient,
+  type Session, type InsertSession
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -12,6 +13,11 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  
+  // Sessions
+  createSession(session: InsertSession): Promise<Session>;
+  getSessionByToken(token: string): Promise<Session | undefined>;
+  deleteSession(token: string): Promise<void>;
 
   // Cards
   getCards(filters?: { status?: string; clientId?: string; channel?: string }): Promise<Card[]>;
@@ -60,6 +66,24 @@ export class DatabaseStorage implements IStorage {
       .values(insertUser)
       .returning();
     return user;
+  }
+
+  // Sessions methods
+  async createSession(insertSession: InsertSession): Promise<Session> {
+    const [session] = await db
+      .insert(sessions)
+      .values(insertSession)
+      .returning();
+    return session;
+  }
+
+  async getSessionByToken(token: string): Promise<Session | undefined> {
+    const [session] = await db.select().from(sessions).where(eq(sessions.token, token));
+    return session || undefined;
+  }
+
+  async deleteSession(token: string): Promise<void> {
+    await db.delete(sessions).where(eq(sessions.token, token));
   }
 
   // Cards methods
