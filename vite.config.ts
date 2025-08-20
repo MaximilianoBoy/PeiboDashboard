@@ -7,8 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
+    ...(process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined
       ? [
           await import("@replit/vite-plugin-cartographer").then((m) =>
             m.cartographer(),
@@ -29,9 +28,20 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    port: 5173,          // Vite dev server
+    open: true,
     fs: {
       strict: true,
       deny: ["**/.*"],
     },
+    proxy: {
+      // Reenvía todas las llamadas /api al backend Express
+      "/api": {
+        target: "http://localhost:5000",  // tu Express está en 5000
+        changeOrigin: true,
+      },
+    },
+    // Si el overlay molesta:
+    // hmr: { overlay: false },
   },
 });

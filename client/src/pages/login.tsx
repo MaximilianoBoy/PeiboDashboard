@@ -61,7 +61,7 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center text-[#002c5f]">
-            PeiboDashboard
+            Peibo
           </CardTitle>
           <CardDescription className="text-center">
             Ingresa tus credenciales para acceder al sistema

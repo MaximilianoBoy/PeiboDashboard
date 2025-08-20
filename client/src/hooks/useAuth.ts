@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";          // ✅ comilla cerrada y correcto
 import { apiRequest } from "@/lib/queryClient";
 
 interface User {
@@ -18,7 +19,11 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem("authToken"));
+  const [token, setToken] = useState<string | null>(() =>
+    localStorage.getItem("authToken")
+  );
+
+  const [, setLocation] = useLocation();       // ✅ necesario para redirigir
 
   // al montar: si no hay token, ya no cargamos
   useEffect(() => {
@@ -44,13 +49,15 @@ export function useAuth() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const checkAuth = async () => {
+  // acepta tokenOverride para usar el token recién emitido en login
+  const checkAuth = async (tokenOverride?: string | null) => {
     try {
       setIsLoading(true);
       setError(null);
 
+      const bearer = tokenOverride ?? token; // usa el más fresco
       const me = await apiRequest<ApiMeResponse>("/api/auth/me", {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${bearer}` },
       });
 
       const resolvedUser: User | null =
@@ -61,7 +68,9 @@ export function useAuth() {
       setUser(resolvedUser);
     } catch (err) {
       console.error("Authentication error:", err);
-      setError(err instanceof Error ? err.message : "Unknown authentication error");
+      setError(
+        err instanceof Error ? err.message : "Unknown authentication error"
+      );
       localStorage.removeItem("authToken");
       setToken(null);
       setUser(null);
@@ -84,7 +93,15 @@ export function useAuth() {
 
       localStorage.setItem("authToken", resp.token);
       setToken(resp.token);
+
+      // si el backend envía el usuario en el login, úsalo ya
       if (resp.user) setUser(resp.user);
+
+      // carga inmediata del usuario con el token fresco
+      await checkAuth(resp.token);
+
+      // (opcional) redirigir al dashboard
+      setLocation("/");
       return true;
     } catch (err) {
       console.error("Login error:", err);
@@ -110,8 +127,18 @@ export function useAuth() {
       setToken(null);
       setUser(null);
       setError(null);
+      setLocation("/login");                 
     }
   };
 
-  return { user, isLoading, error, isAuthenticated: !!user, token, login, logout, checkAuth };
+  return {
+    user,
+    isLoading,
+    error,
+    isAuthenticated: !!user,
+    token,
+    login,
+    logout,
+    checkAuth,
+  };
 }
